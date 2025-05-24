@@ -3,15 +3,13 @@ const cors = require('cors');
 const ytdl = require('ytdl-core');
 const app = express();
 
-app.use(cors()); // Permitir todas las conexiones
-app.use(express.json()); // Parsear JSON en requests
+app.use(cors());
+app.use(express.json());
 
-// Ruta para comprobar que está funcionando
 app.get('/', (req, res) => {
-  res.send('Servidor de descarga de YouTube activo.');
+  res.send('Servidor funcionando');
 });
 
-// Ruta de descarga
 app.post('/download', async (req, res) => {
   const { url, format } = req.body;
 
@@ -27,18 +25,17 @@ app.post('/download', async (req, res) => {
 
     const stream = ytdl(url, {
       filter: format === 'mp3' ? 'audioonly' : 'videoandaudio',
-      quality: format === 'mp3' ? 'highestaudio' : 'highest',
+      quality: format === 'mp3' ? 'highestaudio' : 'highest'
     });
 
     stream.pipe(res);
   } catch (err) {
-    console.error('Error al descargar:', err);
-    res.status(500).json({ error: 'Error interno del servidor.' });
+    console.error(err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Puerto dinámico para Render o local (por ejemplo 3000)
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Servidor escuchando en el puerto ${PORT}`);
+  console.log(`Servidor corriendo en puerto ${PORT}`);
 });
