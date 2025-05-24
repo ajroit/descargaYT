@@ -1,39 +1,44 @@
 const express = require('express');
 const cors = require('cors');
-const { exec } = require('child_process');
-const fs = require('fs');
-const path = require('path');
-
+const ytdl = require('ytdl-core');
 const app = express();
-app.use(cors());
-app.use(express.json());
 
-app.post('/download', async (req, res) => {
-  const { url, format } = req.body;
-  if (!url || !['mp4', 'mp3'].includes(format)) {
-    return res.status(400).json({ error: 'URL o formato inválido' });
-  }
+app.use(cors()); // Permitir todas las conexiones
+app.use(express.json()); // Parsear JSON en requests
 
-  const id = Date.now();
-  const output = `video_${id}.${format === 'mp3' ? 'mp3' : 'mp4'}`;
-
-  const command = `yt-dlp -f bestaudio[ext=m4a]+bestvideo[ext=mp4]/best -o "${output}" ${format === 'mp3' ? '--extract-audio --audio-format mp3' : ''} "${url}"`;
-
-  exec(command, (error) => {
-    if (error) {
-      console.error(error);
-      return res.status(500).json({ error: 'Error al procesar el video' });
-    }
-
-    const filePath = path.join(__dirname, output);
-    res.download(filePath, output, (err) => {
-      fs.unlink(filePath, () => {}); // eliminar después de descargar
-      if (err) console.error(err);
-    });
-  });
+// Ruta para comprobar que está funcionando
+app.get('/', (req, res) => {
+  res.send('Servidor de descarga de YouTube activo.');
 });
 
+// Ruta de descarga
+app.post('/download', async (req, res) => {
+  const { url, format } = req.body;
+
+  if (!ytdl.validateURL(url)) {
+    return res.status(400).json({ error: 'URL inválida de YouTube.' });
+  }
+
+  try {
+    const info = await ytdl.getInfo(url);
+    const title = info.videoDetails.title.replace(/[^\w\s]/gi, '');
+
+    res.header('Content-Disposition', `attachment; filename="${title}.${format}"`);
+
+    const stream = ytdl(url, {
+      filter: format === 'mp3' ? 'audioonly' : 'videoandaudio',
+      quality: format === 'mp3' ? 'highestaudio' : 'highest',
+    });
+
+    stream.pipe(res);
+  } catch (err) {
+    console.error('Error al descargar:', err);
+    res.status(500).json({ error: 'Error interno del servidor.' });
+  }
+});
+
+// Puerto dinámico para Render o local (por ejemplo 3000)
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Servidor corriendo en puerto ${PORT}`);
+  console.log(`Servidor escuchando en el puerto ${PORT}`);
 });
